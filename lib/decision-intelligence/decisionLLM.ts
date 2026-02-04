@@ -1,3 +1,9 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+
 export type DecisionInput = {
   decision: string;
   stakes: string;
@@ -17,38 +23,43 @@ export async function runDecisionIntelligence(
   input: DecisionInput
 ): Promise<DecisionOutput> {
 
-  const biases: string[] = [];
-  const downsides: string[] = [];
+  const response = await openai.responses.create({
+    model: "gpt-4o-mini",
+    response_format: { type: "json_object" },
+    input: [
+      {
+        role: "system",
+        content:
+          "You are an enterprise decision intelligence system. Output ONLY valid JSON.",
+      },
+      {
+        role: "user",
+        content: `
+Analyze the decision BEFORE execution.
 
-  if (input.horizon === "short") {
-    biases.push("Short-term urgency bias");
+Decision: ${input.decision}
+Stakes: ${input.stakes}
+Time Horizon: ${input.horizon}
+Domain: ${input.domain}
+
+Return JSON with:
+- riskLevel
+- detectedBiases
+- downsideScenarios
+- regretAnalysis
+- boardRecommendation
+        `,
+      },
+    ],
+  });
+
+  // ✅ This is GUARANTEED JSON
+  const json = response.output_parsed;
+
+  if (!json) {
+    throw new Error("No JSON returned from OpenAI");
   }
 
-  if (input.stakes.toLowerCase().includes("crore")) {
-    biases.push("Scale underestimation risk");
-    downsides.push("Irreversible capital exposure");
-  }
-
-  if (input.domain === "hiring") {
-    biases.push("Emotional hiring risk");
-    downsides.push("Leadership misfit damage");
-  }
-
-  let riskLevel: DecisionOutput["riskLevel"] = "Medium";
-
-  if (biases.length >= 2) riskLevel = "High";
-  if (biases.length >= 3) riskLevel = "Severe";
-
-  return {
-    riskLevel,
-    detectedBiases: biases,
-    downsideScenarios: downsides,
-    regretAnalysis:
-      "Failure would be costly, difficult to reverse, and reputationally damaging.",
-    boardRecommendation:
-      riskLevel === "Severe"
-        ? "Do not proceed without independent validation and staged execution."
-        : "Proceed only with safeguards and explicit exit conditions.",
-  };
+  return json as DecisionOutput;
 }
 

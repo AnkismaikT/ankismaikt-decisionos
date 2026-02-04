@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 
 export default function DashboardLayout({
@@ -5,6 +7,24 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
+  function exportBoardReport() {
+    fetch("/api/decision/report", { method: "POST" })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "DecisionOS-Board-Report.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+      })
+      .catch(() => {
+        alert("Failed to generate board report");
+      });
+  }
+
   return (
     <div
       style={{
@@ -101,6 +121,7 @@ export default function DashboardLayout({
           >
             {/* BOARD EXPORT */}
             <button
+              onClick={exportBoardReport}
               style={{
                 padding: "8px 14px",
                 background: "#ffffff",

@@ -7,17 +7,29 @@ datasource db {
   url      = "file:./decisionos.db"
 }
 
+model User {
+  id        String     @id @default(cuid())
+  email     String     @unique
+  createdAt DateTime   @default(now())
+  decisions Decision[]
+}
+
 model Decision {
   id                   String   @id @default(cuid())
+  userId               String
+  user                 User     @relation(fields: [userId], references: [id])
+
   domain               String
   decision             String
   stakes               String
   horizon              String
-  riskLevel             String
+  riskLevel            String
+
   detectedBiases        String
   downsideScenarios     String
   regretAnalysis        String
   boardRecommendation   String
+
   createdAt            DateTime @default(now())
 }
 

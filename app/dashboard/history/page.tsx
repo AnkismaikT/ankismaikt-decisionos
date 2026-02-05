@@ -1,81 +1,122 @@
 import { prisma } from "@/lib/db/prisma";
+import { getCurrentUserId } from "@/lib/auth/fakeUser";
 
 export default async function HistoryPage() {
+  const userId = getCurrentUserId();
+
   const decisions = await prisma.decision.findMany({
+    where: { userId },
     orderBy: { createdAt: "desc" },
-    take: 50,
   });
 
   return (
-    <div>
-      <h2>Decision History</h2>
-      <p style={{ color: "#666", marginBottom: 20 }}>
-        Institutional record of high-impact decisions.
-      </p>
+    <div style={{ padding: 24 }}>
+      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Decision History</h2>
 
       {decisions.length === 0 && (
-        <p>No decisions recorded yet.</p>
+        <p style={{ marginTop: 12 }}>No decisions recorded yet.</p>
       )}
 
       {decisions.length > 0 && (
-        <div
+        <table
           style={{
-            background: "#fff",
-            borderRadius: 12,
-            overflow: "hidden",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+            width: "100%",
+            borderCollapse: "collapse",
+            marginTop: 16,
           }}
         >
-          <table
-            style={{
-              width: "100%",
-              borderCollapse: "collapse",
-            }}
-          >
-            <thead>
-              <tr style={{ background: "#f5f6fa", textAlign: "left" }}>
-                <th style={{ padding: 12 }}>Date</th>
-                <th style={{ padding: 12 }}>Domain</th>
-                <th style={{ padding: 12 }}>Decision</th>
-                <th style={{ padding: 12 }}>Risk</th>
-              </tr>
-            </thead>
-            <tbody>
-              {decisions.map((d) => (
-                <tr key={d.id} style={{ borderTop: "1px solid #eee" }}>
-                  <td style={{ padding: 12 }}>
-                    {d.createdAt.toDateString()}
-                  </td>
-                  <td style={{ padding: 12 }}>{d.domain}</td>
-                  <td style={{ padding: 12 }}>{d.decision}</td>
-                  <td style={{ padding: 12 }}>
-                    <span
+          <thead>
+            <tr style={{ textAlign: "left" }}>
+              <th>Date</th>
+              <th>Domain</th>
+              <th>Decision</th>
+              <th>Risk</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {decisions.map((d) => {
+              const riskColor =
+                d.riskLevel === "High" || d.riskLevel === "Severe"
+                  ? "#DC2626" // red
+                  : d.riskLevel === "Medium"
+                  ? "#F59E0B" // amber
+                  : "#16A34A"; // green
+
+              return (
+                <tr key={d.id}>
+                  <td>{new Date(d.createdAt).toLocaleDateString()}</td>
+                  <td>{d.domain}</td>
+                  <td>{d.decision}</td>
+                  <td>{d.riskLevel}</td>
+
+                  <td style={{ display: "flex", gap: 8 }}>
+                    {/* RISK */}
+                    <a
+                      href={`/dashboard/history/${d.id}`}
                       style={{
-                        padding: "4px 10px",
-                        borderRadius: 12,
-                        fontSize: 12,
-                        background:
-                          d.riskLevel === "Severe"
-                            ? "#fff1f0"
-                            : d.riskLevel === "High"
-                            ? "#fff7e6"
-                            : "#f6ffed",
-                        color:
-                          d.riskLevel === "Severe"
-                            ? "#cf1322"
-                            : d.riskLevel === "High"
-                            ? "#d48806"
-                            : "#389e0d",
+                        padding: "6px 12px",
+                        background: riskColor,
+                        color: "white",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        textDecoration: "none",
                       }}
                     >
-                      {d.riskLevel}
-                    </span>
+                      Risk
+                    </a>
+
+                    {/* POTENTIAL */}
+                    <a
+                      href={`/dashboard/history/${d.id}`}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#F59E0B",
+                        color: "#000",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Potential
+                    </a>
+
+                    {/* REMINDER */}
+                    <a
+                      href={`/dashboard/history/${d.id}`}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#2563EB",
+                        color: "white",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Reminder
+                    </a>
+
+                    {/* EDIT BUTTON */}
+                    <a
+                      href={`/dashboard/history/${d.id}`}
+                      style={{
+                        padding: "6px 14px",
+                        background: "#111827",
+                        color: "white",
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        textDecoration: "none",
+                      }}
+                    >
+                      Edit
+                    </a>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 
 /* =====================================================
-   Recharts (client-only, forced color safe)
+   Recharts (client-only)
 ===================================================== */
 const PieChart = dynamic(() => import("recharts").then(m => m.PieChart), { ssr: false });
 const Pie = dynamic(() => import("recharts").then(m => m.Pie), { ssr: false });
@@ -30,13 +30,20 @@ type Decision = {
   };
 };
 
+type DecisionIntelligence = {
+  decisionScore: number;
+  downsideProbability: number;
+  regretIndex: number;
+  confidenceAdjustedScore: number;
+};
+
 /* =====================================================
-   FORCED COLORS (NO GRAY POSSIBLE)
+   Forced Colors (Board-safe)
 ===================================================== */
 const COLORS = {
-  high: "#ef4444",   // RED
-  medium: "#f59e0b", // AMBER
-  low: "#22c55e",    // GREEN
+  high: "#ef4444",
+  medium: "#f59e0b",
+  low: "#22c55e",
 };
 
 /* =====================================================
@@ -45,6 +52,8 @@ const COLORS = {
 export default function DecisionExportDashboard() {
   const [mounted, setMounted] = useState(false);
   const [decision, setDecision] = useState<Decision | null>(null);
+  const [intel, setIntel] = useState<DecisionIntelligence | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [signature, setSignature] = useState<string | null>(null);
 
@@ -53,7 +62,7 @@ export default function DecisionExportDashboard() {
     setMounted(true);
   }, []);
 
-  /* ---------- Demo Data ---------- */
+  /* ---------- Load Decision (replace with DB later) ---------- */
   useEffect(() => {
     if (!mounted) return;
 
@@ -71,13 +80,42 @@ export default function DecisionExportDashboard() {
     });
   }, [mounted]);
 
-  /* ---------- Signature Canvas ---------- */
+  /* =====================================================
+     REAL DECISION ENGINE (SERVER-SIDE IP)
+  ===================================================== */
   useEffect(() => {
     if (!mounted) return;
 
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    async function runDecisionEngine() {
+      try {
+        const res = await fetch("/api/decision/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            riskLevel: 7,
+            capitalExposure: 12,
+            timeHorizonMonths: 18,
+            reversibility: 4,
+            confidence: 7,
+            biasRisk: 5,
+          }),
+        });
 
+        const data = await res.json();
+        setIntel(data);
+      } catch (err) {
+        console.error("Decision engine failed", err);
+      }
+    }
+
+    runDecisionEngine();
+  }, [mounted]);
+
+  /* ---------- Signature Canvas ---------- */
+  useEffect(() => {
+    if (!mounted || !canvasRef.current) return;
+
+    const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
@@ -99,9 +137,7 @@ export default function DecisionExportDashboard() {
       ctx.stroke();
     };
 
-    const stop = () => {
-      drawing = false;
-    };
+    const stop = () => (drawing = false);
 
     canvas.addEventListener("mousedown", start);
     canvas.addEventListener("mousemove", draw);
@@ -115,17 +151,11 @@ export default function DecisionExportDashboard() {
   }, [mounted]);
 
   /* ---------- Guards ---------- */
-  if (!mounted) {
-    return <div style={{ padding: 40 }}>Loading Decision Dashboard…</div>;
-  }
+  if (!mounted) return <div style={{ padding: 40 }}>Loading…</div>;
+  if (!decision || !intel)
+    return <div style={{ padding: 40 }}>Loading decision intelligence…</div>;
 
-  if (!decision) {
-    return <div style={{ padding: 40 }}>No decision loaded</div>;
-  }
-
-  /* =====================================================
-     CHART DATA WITH INLINE COLORS (KEY FIX)
-  ===================================================== */
+  /* ---------- Chart Data ---------- */
   const chartData = [
     { name: "High Risk", value: decision.risk.high, fill: COLORS.high },
     { name: "Medium Risk", value: decision.risk.medium, fill: COLORS.medium },
@@ -135,22 +165,48 @@ export default function DecisionExportDashboard() {
   const renderLabel = ({ percent }: { percent?: number }) =>
     percent ? `${(percent * 100).toFixed(0)}%` : "";
 
-  /* ---------- PDF ---------- */
+  /* =====================================================
+     PDF EXPORT — AUDIT & COURT SAFE
+  ===================================================== */
   const exportPdf = async () => {
     const { jsPDF } = await import("jspdf");
-
     const pdf = new jsPDF();
-    pdf.setFontSize(14);
-    pdf.text("Decision Record", 10, 20);
-    pdf.text(`ID: ${decision.id}`, 10, 35);
-    pdf.text(`Title: ${decision.title}`, 10, 45);
+
+    /* ---------- 3B: LOCK METADATA ---------- */
+    pdf.setProperties({
+      title: "Decision Intelligence Record",
+      subject: "Board Decision Justification",
+      author: "AnkismaikT DecisionOS",
+      creator: "AnkismaikT",
+    });
+
+    pdf.setFontSize(16);
+    pdf.text("Decision Intelligence Record", 10, 20);
+
+    pdf.setFontSize(11);
+    pdf.text(`Decision ID: ${decision.id}`, 10, 35);
+    pdf.text(`Title: ${decision.title}`, 10, 43);
+
+    pdf.text(`Decision Score: ${intel.decisionScore}/100`, 10, 60);
+    pdf.text(`Downside Probability: ${intel.downsideProbability}%`, 10, 68);
+    pdf.text(`Regret Index: ${intel.regretIndex}%`, 10, 76);
+    pdf.text(`Confidence Adjusted Score: ${intel.confidenceAdjustedScore}`, 10, 84);
 
     if (signature) {
-      pdf.text("Authorized Signature:", 10, 65);
-      pdf.addImage(signature, "PNG", 10, 70, 60, 25);
+      pdf.text("Authorized Signature:", 10, 100);
+      pdf.addImage(signature, "PNG", 10, 105, 60, 25);
     }
 
-    pdf.save(`${decision.id}.pdf`);
+    /* ---------- 3A: LEGAL / AUDIT FOOTER ---------- */
+    pdf.setFontSize(9);
+    pdf.text(
+      "Disclaimer: This document records structured decision reasoning at the time of approval. "
+        + "It is not a prediction or guarantee of outcome.",
+      10,
+      280
+    );
+
+    pdf.save(`${decision.id}-decision-report.pdf`);
   };
 
   /* =====================================================
@@ -158,27 +214,55 @@ export default function DecisionExportDashboard() {
   ===================================================== */
   return (
     <div style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 16 }}>
-        AnkismaikT DecisionOS – Decisions
+      <h1 style={{ fontSize: 28, fontWeight: 700 }}>
+        AnkismaikT DecisionOS — Board Decision Report
       </h1>
+
+      <p style={{ marginTop: 6, color: "#4b5563" }}>
+        Structured, risk-adjusted decision intelligence for leadership review.
+      </p>
 
       <button
         onClick={exportPdf}
         style={{
+          marginTop: 16,
           padding: "8px 16px",
           background: "#4f46e5",
           color: "#fff",
           borderRadius: 6,
           border: "none",
-          marginBottom: 24,
           cursor: "pointer",
         }}
       >
-        Export Decision PDF
+        Export Board PDF
       </button>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
-        {/* ================= Chart ================= */}
+      {/* ================= Intelligence Summary ================= */}
+      <section
+        style={{
+          marginTop: 24,
+          padding: 16,
+          border: "1px solid #e5e7eb",
+          borderRadius: 10,
+          background: "#ffffff",
+        }}
+      >
+        <h3 style={{ fontWeight: 600 }}>Decision Intelligence Summary</h3>
+
+        <ul style={{ marginTop: 8, fontSize: 14 }}>
+          <li>• Decision Score: <strong>{intel.decisionScore}/100</strong></li>
+          <li>• Downside Probability: <strong>{intel.downsideProbability}%</strong></li>
+          <li>• Regret Index: <strong>{intel.regretIndex}%</strong></li>
+          <li>• Confidence-Adjusted Score: <strong>{intel.confidenceAdjustedScore}</strong></li>
+        </ul>
+
+        <p style={{ marginTop: 10, fontSize: 12, color: "#6b7280" }}>
+          Scores reflect reasoning quality and risk calibration, not outcome prediction.
+        </p>
+      </section>
+
+      {/* ================= Chart & Signature ================= */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}>
         <div
           style={{
             height: 360,
@@ -188,47 +272,37 @@ export default function DecisionExportDashboard() {
             borderRadius: 10,
           }}
         >
-          <h3 style={{ marginBottom: 10 }}>
-            Risk Distribution (%) – High / Medium / Low
-          </h3>
+          <h3>Risk Distribution</h3>
 
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={chartData}
                 dataKey="value"
-                nameKey="name"
                 innerRadius={55}
                 outerRadius={125}
                 label={renderLabel}
                 labelLine={false}
-                isAnimationActive={true}
               >
                 {chartData.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={entry.fill}
-                    stroke="#ffffff"
-                    strokeWidth={2}
-                  />
+                  <Cell key={index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
                 ))}
               </Pie>
-
               <Tooltip formatter={(v: number) => `${v}%`} />
             </PieChart>
           </ResponsiveContainer>
         </div>
 
-        {/* ================= Signature ================= */}
         <div>
-          <h3 style={{ marginBottom: 8 }}>CEO / Board Signature</h3>
+          <h3>CEO / Board Authorization</h3>
           <canvas
             ref={canvasRef}
             width={360}
             height={150}
             style={{
+              marginTop: 8,
               border: "2px dashed #9ca3af",
-              background: "#ffffff",
+              background: "#fff",
               borderRadius: 6,
             }}
           />

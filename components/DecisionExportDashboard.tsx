@@ -62,7 +62,7 @@ export default function DecisionExportDashboard() {
     setMounted(true);
   }, []);
 
-  /* ---------- Load Decision (replace with DB later) ---------- */
+  /* ---------- Load Decision (mock for UI-only prod) ---------- */
   useEffect(() => {
     if (!mounted) return;
 
@@ -81,34 +81,17 @@ export default function DecisionExportDashboard() {
   }, [mounted]);
 
   /* =====================================================
-     REAL DECISION ENGINE (SERVER-SIDE IP)
+     DECISION INTELLIGENCE (MOCK – BACKEND REMOVED)
   ===================================================== */
   useEffect(() => {
     if (!mounted) return;
 
-    async function runDecisionEngine() {
-      try {
-        const res = await fetch("/api/decision/evaluate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            riskLevel: 7,
-            capitalExposure: 12,
-            timeHorizonMonths: 18,
-            reversibility: 4,
-            confidence: 7,
-            biasRisk: 5,
-          }),
-        });
-
-        const data = await res.json();
-        setIntel(data);
-      } catch (err) {
-        console.error("Decision engine failed", err);
-      }
-    }
-
-    runDecisionEngine();
+    setIntel({
+      decisionScore: 71,
+      downsideProbability: 42,
+      regretIndex: 18,
+      confidenceAdjustedScore: 64,
+    });
   }, [mounted]);
 
   /* ---------- Signature Canvas ---------- */
@@ -166,13 +149,12 @@ export default function DecisionExportDashboard() {
     percent ? `${(percent * 100).toFixed(0)}%` : "";
 
   /* =====================================================
-     PDF EXPORT — AUDIT & COURT SAFE
+     PDF EXPORT — AUDIT SAFE
   ===================================================== */
   const exportPdf = async () => {
     const { jsPDF } = await import("jspdf");
     const pdf = new jsPDF();
 
-    /* ---------- 3B: LOCK METADATA ---------- */
     pdf.setProperties({
       title: "Decision Intelligence Record",
       subject: "Board Decision Justification",
@@ -197,7 +179,6 @@ export default function DecisionExportDashboard() {
       pdf.addImage(signature, "PNG", 10, 105, 60, 25);
     }
 
-    /* ---------- 3A: LEGAL / AUDIT FOOTER ---------- */
     pdf.setFontSize(9);
     pdf.text(
       "Disclaimer: This document records structured decision reasoning at the time of approval. "
@@ -237,7 +218,6 @@ export default function DecisionExportDashboard() {
         Export Board PDF
       </button>
 
-      {/* ================= Intelligence Summary ================= */}
       <section
         style={{
           marginTop: 24,
@@ -261,7 +241,6 @@ export default function DecisionExportDashboard() {
         </p>
       </section>
 
-      {/* ================= Chart & Signature ================= */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 24 }}>
         <div
           style={{
@@ -288,7 +267,12 @@ export default function DecisionExportDashboard() {
                   <Cell key={index} fill={entry.fill} stroke="#fff" strokeWidth={2} />
                 ))}
               </Pie>
-              <Tooltip formatter={(v: number) => `${v}%`} />
+
+              <Tooltip
+                formatter={(value) =>
+                  typeof value === "number" ? `${value}%` : ""
+                }
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>

@@ -4,7 +4,8 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // 👇 IMPORTANT: Prisma CLI will now read THIS variable
+url = env("DATABASE_URL")
 }
 
 model User {

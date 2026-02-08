@@ -149,20 +149,22 @@ export default function DashboardLayout({
               ● Live Analysis
             </span>
 
-            {/* NEW DECISION */}
-            <button
-              style={{
-                padding: "8px 14px",
-                background: "#0b1020",
-                color: "#fff",
-                borderRadius: 8,
-                border: "none",
-                cursor: "pointer",
-                fontSize: 13,
-              }}
-            >
-              New Decision
-            </button>
+            {/* ✅ FIXED: NEW DECISION */}
+            <Link href="/dashboard/new">
+              <button
+                style={{
+                  padding: "8px 14px",
+                  background: "#0b1020",
+                  color: "#fff",
+                  borderRadius: 8,
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: 13,
+                }}
+              >
+                New Decision
+              </button>
+            </Link>
           </div>
         </header>
 

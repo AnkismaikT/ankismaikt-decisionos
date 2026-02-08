@@ -3,6 +3,16 @@ import { prisma } from "@/lib/db/prisma";
 import fs from "fs";
 import path from "path";
 
+/**
+ * Derive qualitative risk level from numeric riskScore
+ */
+function getRiskLevel(score: number): "Low" | "Medium" | "High" | "Severe" {
+  if (score >= 80) return "Severe";
+  if (score >= 60) return "High";
+  if (score >= 35) return "Medium";
+  return "Low";
+}
+
 export async function GET() {
   const decisions = await prisma.decision.findMany({
     orderBy: { createdAt: "desc" },
@@ -13,8 +23,8 @@ export async function GET() {
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
 
-  // Load logo (your single logo)
-  let logoImage;
+  // Load logo
+  let logoImage: any = null;
   try {
     const logoPath = path.join(process.cwd(), "public", "logo.png");
     const logoBytes = fs.readFileSync(logoPath);
@@ -25,7 +35,6 @@ export async function GET() {
 
   const pageWidth = 595;
   const pageHeight = 842;
-
   let pageNumber = 1;
 
   // ---------- HELPERS ----------
@@ -53,7 +62,6 @@ export async function GET() {
       font,
     });
 
-    // Watermark
     page.drawText("CONFIDENTIAL", {
       x: 120,
       y: 400,
@@ -78,14 +86,19 @@ export async function GET() {
     );
   };
 
-  // ---------- EXECUTIVE SUMMARY LOGIC ----------
+  // ---------- EXECUTIVE SUMMARY ----------
   const total = decisions.length;
-  const highRisk = decisions.filter(
-    (d) => d.riskLevel === "High" || d.riskLevel === "Severe"
+
+  const riskLevels = decisions.map((d) =>
+    getRiskLevel(d.riskScore)
+  );
+
+  const highRisk = riskLevels.filter(
+    (r) => r === "High" || r === "Severe"
   ).length;
 
-  const mediumRisk = decisions.filter(
-    (d) => d.riskLevel === "Medium"
+  const mediumRisk = riskLevels.filter(
+    (r) => r === "Medium"
   ).length;
 
   const dominantDomain =
@@ -108,7 +121,7 @@ export async function GET() {
       ? "It is recommended that high-risk initiatives undergo phased execution with enhanced board oversight."
       : "Current initiatives are aligned with acceptable risk tolerance. Continued execution is recommended.";
 
-  // ---------- PAGE 1: EXECUTIVE SUMMARY ----------
+  // ---------- PAGE 1 ----------
   let page = pdfDoc.addPage([pageWidth, pageHeight]);
   drawHeader(page);
 
@@ -151,13 +164,13 @@ ${recommendation}
 
   // ---------- DETAIL PAGES ----------
   pageNumber++;
-
   page = pdfDoc.addPage([pageWidth, pageHeight]);
   drawHeader(page);
   y = pageHeight - 100;
 
   for (let i = 0; i < decisions.length; i++) {
     const d = decisions[i];
+    const riskLevel = getRiskLevel(d.riskScore);
 
     if (y < 120) {
       drawFooter(page);
@@ -168,7 +181,7 @@ ${recommendation}
     }
 
     page.drawText(
-      `${i + 1}. ${d.domain} | Risk: ${d.riskLevel}`,
+      `${i + 1}. ${d.domain} | Risk: ${riskLevel}`,
       {
         x: 40,
         y,

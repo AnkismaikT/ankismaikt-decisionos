@@ -1,102 +1,119 @@
-export const dynamic = "force-dynamic";
+"use client";
 
-import { prisma } from "@/lib/db/prisma";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-type PageProps = {
-  params: Promise<{ id?: string }>;
+type Decision = {
+  id: string;
+  decision: string;
+  domain: string;
+  stakes: string;
+  horizon: string;
+  riskScore: number;
 };
 
-export default async function EditDecisionPage({ params }: PageProps) {
-  // ✅ NEXT.JS 16 FIX — params is async
-  const { id } = await params;
+function getRiskLevel(score: number): "Low" | "Medium" | "High" | "Severe" {
+  if (score >= 80) return "Severe";
+  if (score >= 60) return "High";
+  if (score >= 35) return "Medium";
+  return "Low";
+}
 
-  if (!id) {
-    return (
-      <div style={{ padding: 24 }}>
-        <h2>Edit Decision</h2>
-        <p style={{ color: "red" }}>Invalid or missing decision ID.</p>
-      </div>
-    );
-  }
+export default function EditDecisionPage() {
+  const params = useParams();
+  const router = useRouter();
+  const id = params?.id as string;
 
-  const decision = await prisma.decision.findUnique({
-    where: { id },
-  });
+  const [decision, setDecision] = useState<Decision | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  if (!decision) {
-    return (
-      <div style={{ padding: 24 }}>
-        <h2>Edit Decision</h2>
-        <p style={{ color: "red" }}>
-          Decision not found or database not connected.
-        </p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    if (!id) return;
 
-  async function update(formData: FormData) {
-    "use server";
+    fetch(`/api/decision/${id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        setDecision(data);
+        setLoading(false);
+      });
+  }, [id]);
 
-    await prisma.decision.update({
-      where: { id },
-      data: {
-        domain: String(formData.get("domain")),
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+
+    const formData = new FormData(e.currentTarget);
+
+    await fetch(`/api/decision/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         decision: String(formData.get("decision")),
+        domain: String(formData.get("domain")),
         stakes: String(formData.get("stakes")),
         horizon: String(formData.get("horizon")),
-        riskLevel: String(formData.get("riskLevel")),
-      },
+        riskScore: Number(formData.get("riskScore")),
+      }),
     });
+
+    router.push("/dashboard/history");
+  }
+
+  if (loading || !decision) {
+    return <div className="p-6">Loading...</div>;
   }
 
   return (
-    <div style={{ padding: 24, maxWidth: 600 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Edit Decision</h2>
+    <div className="p-6 max-w-2xl mx-auto">
+      <h1 className="text-xl font-bold mb-2">Edit Decision</h1>
+      <p className="text-sm text-gray-600 mb-6">
+        Current Risk Level:{" "}
+        <strong>{getRiskLevel(decision.riskScore)}</strong>
+      </p>
 
-      <form action={update} style={{ display: "grid", gap: 14 }}>
-        <select name="domain" defaultValue={decision.domain}>
-          <option value="Strategy">Strategy</option>
-          <option value="Investment">Investment</option>
-          <option value="Hiring">Hiring</option>
-          <option value="Operations">Operations</option>
-        </select>
-
-        <textarea
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <input
           name="decision"
-          rows={4}
           defaultValue={decision.decision}
+          className="w-full border p-2"
+          placeholder="Decision"
         />
 
-        <select name="stakes" defaultValue={decision.stakes}>
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-        </select>
+        <input
+          name="domain"
+          defaultValue={decision.domain}
+          className="w-full border p-2"
+          placeholder="Domain"
+        />
 
-        <select name="horizon" defaultValue={decision.horizon}>
-          <option value="Short">Short</option>
-          <option value="Medium">Medium</option>
-          <option value="Long">Long</option>
-        </select>
+        <input
+          name="stakes"
+          defaultValue={decision.stakes}
+          className="w-full border p-2"
+          placeholder="Stakes"
+        />
 
-        <select name="riskLevel" defaultValue={decision.riskLevel}>
-          <option value="Low">Low</option>
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-          <option value="Severe">Severe</option>
-        </select>
+        <input
+          name="horizon"
+          defaultValue={decision.horizon}
+          className="w-full border p-2"
+          placeholder="Horizon"
+        />
+
+        <input
+          name="riskScore"
+          type="number"
+          min={0}
+          max={100}
+          defaultValue={decision.riskScore}
+          className="w-full border p-2"
+          placeholder="Risk Score (0–100)"
+        />
 
         <button
           type="submit"
-          style={{
-            padding: "10px",
-            background: "#111827",
-            color: "white",
-            borderRadius: 8,
-            fontWeight: 600,
-          }}
+          className="px-4 py-2 bg-black text-white"
         >
-          Update Decision
+          Save Decision
         </button>
       </form>
     </div>

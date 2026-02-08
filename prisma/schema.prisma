@@ -3,33 +3,35 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./decisionos.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id        String     @id @default(cuid())
   email     String     @unique
+  password  String
   createdAt DateTime   @default(now())
+
   decisions Decision[]
 }
 
 model Decision {
-  id                   String   @id @default(cuid())
-  userId               String
-  user                 User     @relation(fields: [userId], references: [id])
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id])
 
-  domain               String
-  decision             String
-  stakes               String
-  horizon              String
-  riskLevel            String
+  domain              String
+  decision            String
+  stakes              String
+  horizon             String
 
-  detectedBiases        String
-  downsideScenarios     String
-  regretAnalysis        String
-  boardRecommendation   String
+  riskScore           Int
+  downsideProbability Int
+  regretIndex         Int
+  confidenceScore     Int
+  boardRecommendation String
 
-  createdAt            DateTime @default(now())
+  createdAt           DateTime @default(now())
 }
 

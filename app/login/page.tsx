@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -12,24 +13,38 @@ export default function LoginPage() {
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
+
+    console.log("LOGIN SUBMITTED:", email);
+
     setLoading(true);
     setError("");
 
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({ email, password }),
+        credentials: "include", // 🔥 IMPORTANT
       });
 
+      const data = await res.json();
+      console.log("LOGIN RESPONSE:", data);
+
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || "Login failed");
+        throw new Error(data.error || "Login failed");
       }
 
-      router.push("/dashboard");
+      // 🔥 FORCE NAVIGATION (no silent failure)
+      console.log("LOGIN SUCCESS — GOING TO DASHBOARD");
+
+      router.replace("/dashboard"); // 🔑 use replace, not push
+      router.refresh(); // 🔑 force rerender
+
     } catch (err: any) {
-      setError(err.message);
+      console.error("LOGIN ERROR:", err);
+      setError(err.message || "Something went wrong");
     } finally {
       setLoading(false);
     }
@@ -50,7 +65,7 @@ export default function LoginPage() {
         onSubmit={handleLogin}
         style={{
           width: 360,
-          background: "#fff",
+          background: "#ffffff",
           padding: 24,
           borderRadius: 12,
           boxShadow: "0 10px 30px rgba(0,0,0,0.08)",
@@ -100,11 +115,11 @@ export default function LoginPage() {
           style={{
             width: "100%",
             padding: 10,
-            background: "#0b1020",
+            background: loading ? "#555" : "#0b1020",
             color: "#fff",
             borderRadius: 8,
             border: "none",
-            cursor: "pointer",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "Logging in..." : "Login"}

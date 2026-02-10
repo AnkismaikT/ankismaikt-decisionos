@@ -4,8 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  // 👇 IMPORTANT: Prisma CLI will now read THIS variable
-url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -20,19 +19,47 @@ model User {
 model Decision {
   id                  String   @id @default(cuid())
   userId              String
-  user                User     @relation(fields: [userId], references: [id])
 
+  // =========================
+  // CORE DECISION INPUT
+  // =========================
   domain              String
   decision            String
   stakes              String
   horizon             String
 
+  // =========================
+  // INTELLIGENCE OUTPUTS
+  // =========================
   riskScore           Int
   downsideProbability Int
   regretIndex         Int
   confidenceScore     Int
   boardRecommendation String
 
+  // =========================
+  // DECISION LIFECYCLE
+  // =========================
+  analysisRun         Boolean  @default(false)
+  includedInReport    Boolean  @default(false)
+
+  decisionStatus      String   @default("DRAFT")
+  // DRAFT | ANALYZED | APPROVED | REJECTED | ARCHIVED
+
+  // =========================
+  // AUDIT & HISTORY
+  // =========================
   createdAt           DateTime @default(now())
+  analyzedAt          DateTime?
+  approvedAt          DateTime?
+
+  // =========================
+  // RELATIONS
+  // =========================
+  user                User     @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([decisionStatus])
+  @@index([createdAt])
 }
 

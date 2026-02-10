@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db/prisma";
+import { prisma } from "@/lib/prisma";
 import { getCurrentUserId } from "@/lib/auth/fakeUser";
 
 export default async function HistoryPage() {
@@ -9,12 +9,28 @@ export default async function HistoryPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const getRiskLevel = (riskScore: number) => {
+    if (riskScore >= 70) return "High";
+    if (riskScore >= 40) return "Medium";
+    return "Low";
+  };
+
+  const getRiskColor = (riskScore: number) => {
+    if (riskScore >= 70) return "#DC2626"; // red
+    if (riskScore >= 40) return "#F59E0B"; // amber
+    return "#16A34A"; // green
+  };
+
   return (
     <div style={{ padding: 24 }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>Decision History</h2>
+      <h2 style={{ fontSize: 20, fontWeight: 600 }}>
+        Decision History
+      </h2>
 
       {decisions.length === 0 && (
-        <p style={{ marginTop: 12 }}>No decisions recorded yet.</p>
+        <p style={{ marginTop: 12 }}>
+          No decisions recorded yet.
+        </p>
       )}
 
       {decisions.length > 0 && (
@@ -37,22 +53,21 @@ export default async function HistoryPage() {
 
           <tbody>
             {decisions.map((d) => {
-              const riskColor =
-                d.riskLevel === "High" || d.riskLevel === "Severe"
-                  ? "#DC2626" // red
-                  : d.riskLevel === "Medium"
-                  ? "#F59E0B" // amber
-                  : "#16A34A"; // green
+              const riskLevel = getRiskLevel(d.riskScore);
+              const riskColor = getRiskColor(d.riskScore);
 
               return (
                 <tr key={d.id}>
-                  <td>{new Date(d.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    {new Date(d.createdAt).toLocaleDateString()}
+                  </td>
                   <td>{d.domain}</td>
                   <td>{d.decision}</td>
-                  <td>{d.riskLevel}</td>
+                  <td style={{ fontWeight: 600 }}>
+                    {riskLevel}
+                  </td>
 
                   <td style={{ display: "flex", gap: 8 }}>
-                    {/* RISK */}
                     <a
                       href={`/dashboard/history/${d.id}`}
                       style={{
@@ -67,7 +82,6 @@ export default async function HistoryPage() {
                       Risk
                     </a>
 
-                    {/* POTENTIAL */}
                     <a
                       href={`/dashboard/history/${d.id}`}
                       style={{
@@ -82,7 +96,6 @@ export default async function HistoryPage() {
                       Potential
                     </a>
 
-                    {/* REMINDER */}
                     <a
                       href={`/dashboard/history/${d.id}`}
                       style={{
@@ -97,7 +110,6 @@ export default async function HistoryPage() {
                       Reminder
                     </a>
 
-                    {/* EDIT BUTTON */}
                     <a
                       href={`/dashboard/history/${d.id}`}
                       style={{
